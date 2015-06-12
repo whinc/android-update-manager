@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<info>
+	<version>
+		<code>4</code>
+		<name>1.0.4</name>
+	</version>
+	<url>http://192.168.1.168:8000/MyApp.apk</url>
+	<description>更新 -优化意见反馈界面;更新 - 优化设置和关于界面样式;更新 - 优化自动更新，增加最新版安装包二维码生成;新增 - 关于界面显示新版提示和当前版本信息;增加版权信息界面和软件许可协议界面</description>
+</info>
