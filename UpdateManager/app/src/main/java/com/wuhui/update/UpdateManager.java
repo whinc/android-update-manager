@@ -94,7 +94,6 @@ public class UpdateManager {
         updateMgr.setOnCheckVersionResultListener(listener1);
         updateMgr.setOnDownloadChangeListener(listener2);
         updateMgr.checkUpdate();
-
     }
 
     public UpdateManager(Context context, String updateUrl, String savePath) {
@@ -156,6 +155,10 @@ public class UpdateManager {
                         int state = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
                         int reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON));
                         mOnDownloadChangeListener.onChange(state, totalSize, downloadedSize);
+                        if (state == DownloadManager.STATUS_FAILED) {
+                            release();
+                            Log.d("TAG", "realease() called");
+                        }
                         Log.d("TAG", "state:" + state);
                         Log.d("TAG", "reason:" + reason);
                     }
