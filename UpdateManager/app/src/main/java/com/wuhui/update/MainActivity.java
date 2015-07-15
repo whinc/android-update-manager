@@ -1,10 +1,12 @@
 package com.wuhui.update;
 
+import android.app.AlertDialog;
 import android.app.DownloadManager;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.os.Environment;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
 import android.view.View;
@@ -19,7 +21,6 @@ public class MainActivity extends ActionBarActivity {
     private Context mContext;
     private TextView mVersionNumtView;
     private Button mCheckUpdateBtn;
-    private CheckBox mAutoCheckUpdateChkBox;
     private ProgressBar mDownloadProgress;
     private TextView mDownloadProgressTxtView;
 
@@ -28,11 +29,8 @@ public class MainActivity extends ActionBarActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         mContext = this;
-        boolean autoCheckUpdate = getPreferences(MODE_PRIVATE).getBoolean(AUTO_CHECK_UPDATE, true);
-
         mVersionNumtView = (TextView)findViewById(R.id.version_num_textview);
         mCheckUpdateBtn = (Button)findViewById(R.id.check_update_btn);
-        mAutoCheckUpdateChkBox = (CheckBox)findViewById(R.id.auto_check_update_checkbox);
         mDownloadProgress = (ProgressBar)findViewById(R.id.download_progress_progressbar);
         mDownloadProgressTxtView = (TextView)findViewById(R.id.download_progress_textview);
 
@@ -47,34 +45,18 @@ public class MainActivity extends ActionBarActivity {
         }
 
         mCheckUpdateBtn.setOnClickListener(new View.OnClickListener() {
+
             @Override
             public void onClick(View v) {
-                UpdateManager.checkUpdate(MainActivity.this, new UpdateManager.OnCheckVersionResultListener() {
-                    @Override
-                    public boolean onResult(boolean hasNewVersion, int versionCode, String versionName, String updateLog, String apkDownloadUrl) {
-                        if (hasNewVersion) {
-                            Log.d("TAG", "version code:" + versionCode);
-                            Log.d("TAG", "version name:" + versionName);
-                            Log.d("TAG", "update log:" + updateLog);
-                            Log.d("TAG", "apk download url:" + apkDownloadUrl);
-                        } else {
-                            Log.d("TAG", "no new version");
-                        }
-                        return false;
-                    }
-                }, mListener);
+                String savePath = Environment.getExternalStorageDirectory() + "/whinc/download/whinc.apk";
+                String updateUrl = "http://192.168.1.168:8000/update.xml";
+                Updater.with(mContext).downloadListener(mListener)
+                        .update(updateUrl).save(savePath).create().checkUpdate();
             }
         });
-
-        mAutoCheckUpdateChkBox.setChecked(autoCheckUpdate);
-
-        if (autoCheckUpdate) {
-            UpdateManager.checkUpdate(this, null, mListener);
-        }
-
     }
 
-    private UpdateManager.OnDownloadChangeListener mListener = new UpdateManager.OnDownloadChangeListener() {
+    private Updater.DownloadListener mListener = new Updater.DownloadListener() {
 
         @Override
         public void onChange(int state, int totalSize, int downloadedSize) {
@@ -94,22 +76,5 @@ public class MainActivity extends ActionBarActivity {
             }
         }
     };
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-
-        // 记住用户选择
-        boolean autoCheckUpdate = mAutoCheckUpdateChkBox.isChecked();
-        getPreferences(MODE_PRIVATE)
-                .edit()
-                .putBoolean(AUTO_CHECK_UPDATE, autoCheckUpdate)
-                .commit();
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-    }
 }
 
