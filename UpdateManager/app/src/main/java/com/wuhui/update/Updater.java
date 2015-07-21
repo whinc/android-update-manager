@@ -38,34 +38,53 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 /**
- * Updater Use to check update and download newest apk if it exists.
- * it also will install apk for you automa
+ * Updater 通过一行代码就可以完成自动检查更新，如果有更新显示提示对话框，用户点击更新后
+ * 自动下载和安装新版App，用户可以监听下载进度。
  */
 public class Updater {
     public static final String TAG = "Updater";
 
     private final Context mContext;
-    private final String mTitle;                // 更新提示对话框标题
-    private final String mCheckUpdateUrl;       // 检查更新的地址
-    private final String mNotificationTitle;    // 下载通知栏中显示的标题
-    private final String mNotificationMessage;  // 下载通知栏中显示的内容
-    private final String mSavePath;             // 下载的APK的保存路径
-    private final String mDialogCancelBtnTxt;   // 更新提示对话框取消按钮文本
-    private final String mDialogOkBtnTxt;       // 更新提示对话框确认按钮文本
+
+    /** 更新对话框标题 */
+    private final String mTitle;
+
+    /** 更新对话框取消按钮文本 */
+    private final String mDialogCancelBtnTxt;
+
+    /** 更新对话框取确定按钮文本 */
+    private final String mDialogOkBtnTxt;
+
+    /** 检查更新的 HTTP 地址 */
+    private final String mCheckUpdateUrl;
+
+    /** 下载过程中显示在通知栏的标题 */
+    private final String mNotificationTitle;
+
+    /** 下载过程中显示在通知栏的消息 */
+    private final String mNotificationMessage;
+
+    /** App下载后的保存路径 */
+    private final String mSavePath;
+
+    /** 下载进度监听器 */
     private final DownloadListener mDownloadListener;
+
+    /** 检查更新监听器，每次检查更新 */
     private final CheckUpdateListener mCheckUpdateListener;
 
-    private int mRemoteVersionCode = 0;      // 版本号
-    private String mRemoteVersionName = "";  // 版本名称
-    private String mUpdateLog = "";          // 更新日志
-    private String mApkDownloadUrl = "";     // APK下载地址
+    /* 下面字段保存从更新检查文件 update.xml 中获取到的信息 */
+    private int mRemoteVersionCode = 0;
+    private String mRemoteVersionName = "";
+    private String mUpdateLog = "";
+    private String mApkDownloadUrl = "";
 
     private long mDownloadId;
     private BroadcastReceiver mCompleteReceiver;
     private ContentObserver mContentObserver;
     private DownloadManager mDownloadMgr;
 
-    Updater(Context context, String title, String savePath, String checkUpdateUrl,
+    private Updater(Context context, String title, String savePath, String checkUpdateUrl,
             String notificationTitle, String notificationMessage,
             String dialogCancelBtnTxt, String dialogOkBtnTxt,
             CheckUpdateListener l1, DownloadListener l2) {
@@ -136,7 +155,7 @@ public class Updater {
     /**
      * 检查 App 更新
      * 如果用户没有设置ChcekUpdateListener或者CheckUdpateListener.onCompleted()返回false，
-     * 则处理更新，如果有新版本弹出对话框提示用户更新
+     * 则进入更新处理，如果有新版本弹出对话框提示用户更新
      */
     public void checkUpdate() {
         new AsyncTask<Void, Void, Boolean>() {
