@@ -50,8 +50,12 @@ public class MainActivity extends ActionBarActivity {
             public void onClick(View v) {
                 String savePath = Environment.getExternalStorageDirectory() + "/whinc/download/whinc.apk";
                 String updateUrl = "http://192.168.1.168:8000/update.xml";
-                Updater.with(mContext).downloadListener(mListener)
-                        .update(updateUrl).save(savePath).create().checkUpdate();
+                Updater.with(mContext)
+                        .downloadListener(mListener)
+                        .update(updateUrl)
+                        .save(savePath)
+                        .create()
+                        .checkUpdate();
             }
         });
     }
