@@ -16,6 +16,8 @@ Updater.with(mContext)
         .checkUpdate();
 ```
 
+![demo运行截图](screenshot1.png)
+
 ### LICENSE
 
 The MIT License (MIT)
