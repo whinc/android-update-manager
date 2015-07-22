@@ -45,39 +45,20 @@ public class Updater {
     public static final String TAG = "Updater";
 
     private final Context mContext;
-
-    /** 更新对话框标题 */
-    private final String mTitle;
-
-    /** 更新对话框取消按钮文本 */
-    private final String mDialogCancelBtnTxt;
-
-    /** 更新对话框取确定按钮文本 */
-    private final String mDialogOkBtnTxt;
-
-    /** 检查更新的 HTTP 地址 */
-    private final String mCheckUpdateUrl;
-
-    /** 下载过程中显示在通知栏的标题 */
-    private final String mNotificationTitle;
-
-    /** 下载过程中显示在通知栏的消息 */
-    private final String mNotificationMessage;
-
-    /** App下载后的保存路径 */
-    private final String mSavePath;
-
-    /** 下载进度监听器 */
+    private final String mTitle;                // 更新提示对话框标题
+    private final String mCheckUpdateUrl;       // 检查更新的地址
+    private final String mNotificationTitle;    // 下载通知栏中显示的标题
+    private final String mNotificationMessage;  // 下载通知栏中显示的内容
+    private final String mSavePath;             // 下载的APK的保存路径
+    private final String mDialogCancelBtnTxt;   // 更新提示对话框取消按钮文本
+    private final String mDialogOkBtnTxt;       // 更新提示对话框确认按钮文本
     private final DownloadListener mDownloadListener;
-
-    /** 检查更新监听器，每次检查更新 */
     private final CheckUpdateListener mCheckUpdateListener;
 
-    /* 下面字段保存从更新检查文件 update.xml 中获取到的信息 */
-    private int mRemoteVersionCode = 0;
-    private String mRemoteVersionName = "";
-    private String mUpdateLog = "";
-    private String mApkDownloadUrl = "";
+    private int mRemoteVersionCode = 0;      // 版本号
+    private String mRemoteVersionName = "";  // 版本名称
+    private String mUpdateLog = "";          // 更新日志
+    private String mApkDownloadUrl = "";     // APK下载地址
 
     private long mDownloadId;
     private BroadcastReceiver mCompleteReceiver;
