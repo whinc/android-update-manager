@@ -49,7 +49,7 @@ public class MainActivity extends ActionBarActivity {
             @Override
             public void onClick(View v) {
                 String savePath = Environment.getExternalStorageDirectory() + "/whinc/download/whinc.apk";
-                String updateUrl = "http://192.168.1.168:8000/update.xml";
+                String updateUrl = "http://admin.qfoxtech.com:9006/distribution/update.do?type=QIAO_QIAO_ANDROID";
                 Updater.with(mContext)
                         .downloadListener(mListener)
                         .update(updateUrl)

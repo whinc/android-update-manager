@@ -1,5 +1,6 @@
 package com.wuhui.update;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.DownloadManager;
 import android.content.BroadcastReceiver;
@@ -223,32 +224,7 @@ public class Updater {
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 dialog.dismiss();
-
-                // 后台下载
-                mDownloadMgr = (DownloadManager) mContext.getSystemService(Context.DOWNLOAD_SERVICE);
-                DownloadManager.Request request = new DownloadManager.Request(Uri.parse(mApkDownloadUrl));
-                if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
-                    // 如果保存路径包含子目录，需要先递归创建目录
-                    if (!createDirIfAbsent(mSavePath)) {
-                        Log.e("TAG", "apk save path can not be created:" + mSavePath);
-                        return;
-                    }
-
-                    request.setDestinationUri(Uri.fromFile(new File(mSavePath)));
-                    request.setTitle(mNotificationTitle);
-                    request.setTitle(mNotificationMessage);
-                    // 注册广播，监听下载完成事件
-                    mContext.registerReceiver(mCompleteReceiver,
-                            new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
-                    // 注册监听下载进度
-                    mContext.getContentResolver().registerContentObserver(Uri.parse("content://downloads/my_downloads"),
-                            true, mContentObserver);
-                    mDownloadId = mDownloadMgr.enqueue(request);
-                } else {
-                    Log.e("TAG", "can not access external storage!");
-                    return;
-                }
-                Toast.makeText(mContext, "正在后台下载...", Toast.LENGTH_SHORT).show();
+                downloadApk();
             }
         });
         builder.setNegativeButton(mDialogCancelBtnTxt, new DialogInterface.OnClickListener() {
@@ -257,7 +233,80 @@ public class Updater {
                 dialog.cancel();
             }
         });
-        builder.create().show();
+        AlertDialog dialog = builder.create();
+
+        /* Show dialog will cause exception if the activity dialog attached to has been destroyed. */
+        try {
+            dialog.show();
+        } catch (Exception e) {
+            Log.i(TAG, "showUpdateDialog() failed: The activity dialog attached is destroyed!");
+        }
+    }
+
+    private void downloadApk() {
+        int state = mContext.getPackageManager().getApplicationEnabledSetting(
+                "com.android.providers.downloads");
+        final String packageName = "com.android.providers.downloads";
+
+        // Download Manager is disabled by user
+        if (state == PackageManager.COMPONENT_ENABLED_STATE_DISABLED ||
+                state == PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER
+                || state == PackageManager.COMPONENT_ENABLED_STATE_DISABLED_UNTIL_USED) {
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(mContext);
+            builder.setTitle("Tips")
+                    .setMessage("System download manager is disabled, do you want to enable it?")
+                    .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            dialog.cancel();
+                        }
+                    })
+                    .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            //Open the specific App Info page:
+                            Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                            intent.setData(Uri.parse("package:" + packageName));
+                            mContext.startActivity(intent);
+                            // show the update dialog again
+                            new Handler(mContext.getMainLooper()).postDelayed(new Runnable() {
+                                @Override
+                                public void run() {
+                                    showUpdateDialog();
+                                }
+                            }, 2000);
+                        }
+                    })
+                    .create().show();
+        }
+        else {
+            // 后台下载
+            mDownloadMgr = (DownloadManager) mContext.getSystemService(Context.DOWNLOAD_SERVICE);
+            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(mApkDownloadUrl));
+            if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
+                // 如果保存路径包含子目录，需要先递归创建目录
+                if (!createDirIfAbsent(mSavePath)) {
+                    Log.e("TAG", "apk save path can not be created:" + mSavePath);
+                    return;
+                }
+
+                request.setDestinationUri(Uri.fromFile(new File(mSavePath)));
+                request.setTitle(mNotificationTitle);
+                request.setTitle(mNotificationMessage);
+                // 注册广播，监听下载完成事件
+                mContext.registerReceiver(mCompleteReceiver,
+                        new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
+                // 注册监听下载进度
+                mContext.getContentResolver().registerContentObserver(Uri.parse("content://downloads/my_downloads"),
+                        true, mContentObserver);
+                mDownloadId = mDownloadMgr.enqueue(request);
+            } else {
+                Log.e("TAG", "can not access external storage!");
+                return;
+            }
+            Toast.makeText(mContext, "正在后台下载...", Toast.LENGTH_SHORT).show();
+        }
     }
 
     /**
