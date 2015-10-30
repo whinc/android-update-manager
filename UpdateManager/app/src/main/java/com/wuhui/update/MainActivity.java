@@ -1,22 +1,21 @@
 package com.wuhui.update;
 
-import android.app.AlertDialog;
 import android.app.DownloadManager;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Environment;
+import android.support.v4.app.FragmentActivity;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.CheckBox;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
 public class MainActivity extends ActionBarActivity {
-    private static final String AUTO_CHECK_UPDATE = "auto_check_update";
+    public static final String TAG = MainActivity.class.getSimpleName();
 
     private Context mContext;
     private TextView mVersionNumtView;
@@ -49,9 +48,10 @@ public class MainActivity extends ActionBarActivity {
             @Override
             public void onClick(View v) {
                 String savePath = Environment.getExternalStorageDirectory() + "/whinc/download/whinc.apk";
-                String updateUrl = "http://admin.qfoxtech.com:9006/distribution/update.do?type=QIAO_QIAO_ANDROID";
+                String updateUrl = "http://192.168.1.182:1234/update.xml";
                 Updater.with(mContext)
-                        .downloadListener(mListener)
+                        .checkUpdateListener(mCheckUpdateListener)
+                        .downloadListener(mDownloadListener)
                         .update(updateUrl)
                         .save(savePath)
                         .create()
@@ -60,7 +60,23 @@ public class MainActivity extends ActionBarActivity {
         });
     }
 
-    private Updater.DownloadListener mListener = new Updater.DownloadListener() {
+    private Updater.CheckUpdateListener mCheckUpdateListener = new Updater.CheckUpdateListener() {
+        @Override
+        public boolean onCompleted(boolean hasNewVersion, int versionCode, String versionName, String updateLog, String apkDownloadUrl) {
+            if (hasNewVersion) {
+                Log.i(TAG, "Find new version:");
+                Log.i(TAG, "    version code:" + versionCode);
+                Log.i(TAG, "    version name:" + versionName);
+                Log.i(TAG, "    apk download url:" + apkDownloadUrl);
+            } else {
+                Log.i(TAG, "It's already the newest version!");
+            }
+            return false;
+        }
+    };
+
+
+    private Updater.DownloadListener mDownloadListener = new Updater.DownloadListener() {
 
         @Override
         public void onChange(int state, int totalSize, int downloadedSize) {

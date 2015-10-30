@@ -1,6 +1,5 @@
 package com.wuhui.update;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.DownloadManager;
 import android.content.BroadcastReceiver;
