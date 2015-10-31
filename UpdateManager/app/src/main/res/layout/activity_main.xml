@@ -26,7 +26,7 @@
         />
 
     <Button
-        android:id="@+id/check_update_btn"
+        android:id="@+id/check_version_button"
         android:text="Check Update"
         android:textAllCaps="false"
         android:layout_width="match_parent"
@@ -38,7 +38,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_below="@id/check_update_btn"
+        android:layout_below="@id/check_version_button"
         android:padding="5dp"
         >
         <ProgressBar
@@ -47,7 +47,7 @@
             android:layout_weight="1"
             android:layout_height="wrap_content"
             style="@android:style/Widget.Holo.ProgressBar.Horizontal"
-            android:layout_below="@id/check_update_btn"
+            android:layout_below="@id/check_version_button"
             />
         <TextView
             android:id="@+id/download_progress_textview"

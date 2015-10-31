@@ -6,7 +6,6 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Environment;
-import android.support.v4.app.FragmentActivity;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
 import android.view.View;
@@ -14,8 +13,8 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-public class MainActivity extends ActionBarActivity {
-    public static final String TAG = MainActivity.class.getSimpleName();
+public class UpdaterActivity extends ActionBarActivity {
+    public static final String TAG = UpdaterActivity.class.getSimpleName();
 
     private Context mContext;
     private TextView mVersionNumtView;
@@ -29,7 +28,7 @@ public class MainActivity extends ActionBarActivity {
         setContentView(R.layout.activity_main);
         mContext = this;
         mVersionNumtView = (TextView)findViewById(R.id.version_num_textview);
-        mCheckUpdateBtn = (Button)findViewById(R.id.check_update_btn);
+        mCheckUpdateBtn = (Button)findViewById(R.id.check_version_button);
         mDownloadProgress = (ProgressBar)findViewById(R.id.download_progress_progressbar);
         mDownloadProgressTxtView = (TextView)findViewById(R.id.download_progress_textview);
 
