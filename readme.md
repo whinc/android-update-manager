@@ -1,4 +1,6 @@
-## Android-UpdateManager
+## [当前readme已经废弃，请移步到新版的readme](./UpdateManger/readme.md)
+
+### AndroidUpdateManager
 
 通过单一的类`Updater`可以方便的实现自动检查更新、下载安装包和自动安装，可以监听下载进度。保存路径可以自由书写，如果路径中某个目录不存在会自动创建，流式API接口易于使用。
 
