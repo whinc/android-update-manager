@@ -108,7 +108,7 @@ public class AppUpdater {
      * @param parser
      * @param listener
      */
-    public void checkVersion(@NonNull final String checkVersionUrl, @NonNull final VersionParser parser, @Nullable final CheckVersionListener listener) {
+    public void checkVersionAsync(@NonNull final String checkVersionUrl, @NonNull final VersionParser parser, @Nullable final CheckVersionListener listener) {
         new AsyncTask<Void, Void, Boolean>() {
 
             @Override
@@ -121,7 +121,7 @@ public class AppUpdater {
             protected void onPostExecute(Boolean hasNewVersion) {
                 super.onPostExecute(hasNewVersion);
                 if (listener != null) {
-                    listener.complete(hasNewVersion, getVersion());
+                    listener.complete(hasNewVersion, getVersion(), AppUpdater.this);
                 }
             }
         }.execute();
@@ -197,7 +197,7 @@ public class AppUpdater {
                 if (id == downloadId) {
                     if (downloadListener != null) {
                         String filePath = DownloadContentObserver.queryDownloadFilePath(downloadManager, downloadId);
-                        downloadListener.onComplete(filePath);
+                        downloadListener.onComplete(filePath, AppUpdater.this);
                     }
                     mContext.unregisterReceiver(this);
                 }
@@ -246,8 +246,9 @@ public class AppUpdater {
          * <p>This method will be called on finishing check version.</p>
          * @param hasNewVersion true if has new version, otherwise false
          * @param version
+         * @param appUpdater
          */
-        void complete(boolean hasNewVersion, Version version);
+        void complete(boolean hasNewVersion, Version version, AppUpdater appUpdater);
     }
 
     public interface DownloadListener {
@@ -262,7 +263,7 @@ public class AppUpdater {
          */
         void onRunning(int totalBytes, int downloadedBytes);
         void onSuccessful();
-        void onComplete(String file);
+        void onComplete(String file, AppUpdater appUpdater);
     }
 
     /*************************** Inner Class Define ***************************/
@@ -375,7 +376,7 @@ public class AppUpdater {
         }
 
         @Override
-        public void onComplete(String file) {
+        public void onComplete(String file, AppUpdater appUpdater) {
 
         }
     }

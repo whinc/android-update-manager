@@ -56,9 +56,9 @@ public class AppUpdaterActivity extends ActionBarActivity {
     @OnClick(R.id.check_version_button)
     protected void checkVersion() {
         String checkVersionUrl = "http://192.168.1.182:1234/update.xml";
-        mAppUpdater.checkVersion(checkVersionUrl, new AppUpdater.VersionParseXML(), new AppUpdater.CheckVersionListener() {
+        mAppUpdater.checkVersionAsync(checkVersionUrl, new AppUpdater.VersionParseXML(), new AppUpdater.CheckVersionListener() {
             @Override
-            public void complete(boolean hasNewVersion, AppUpdater.Version version) {
+            public void complete(boolean hasNewVersion, AppUpdater.Version version, AppUpdater appUpdater) {
                 Log.i(TAG, "version:" + version);
                 if (hasNewVersion) {
                     mServerVersionCode.setText(String.valueOf(version.getVersionCode()));
@@ -98,8 +98,8 @@ public class AppUpdaterActivity extends ActionBarActivity {
             }
 
             @Override
-            public void onComplete(String file) {
-                super.onComplete(file);
+            public void onComplete(String file, AppUpdater appUpdater) {
+                super.onComplete(file, appUpdater);
                 Log.i(TAG, "onComplete filepath:" + file);
                 mApkFile = file;
             }
@@ -128,5 +128,32 @@ public class AppUpdaterActivity extends ActionBarActivity {
     @OnClick(R.id.install_app_button)
     protected void installApk() {
         mAppUpdater.installApk(mApkFile);
+    }
+
+    @OnClick(R.id.check_update_btn)
+    protected void checkUpdate() {
+        String checkVersionUrl = "http://192.168.1.182:1234/update.xml";
+        AppUpdater updater = AppUpdater.newInstance(this);
+        updater.checkVersionAsync(checkVersionUrl, new AppUpdater.VersionParseXML(), new AppUpdater.CheckVersionListener() {
+            @Override
+            public void complete(boolean hasNewVersion, AppUpdater.Version version, AppUpdater appUpdater) {
+                if (hasNewVersion) {
+                    Log.i(TAG, "version info:" + version);
+                    appUpdater.download(version.getDownloadUrl(), new AppUpdater.DownloadListenerAdapter() {
+                        @Override
+                        public void onRunning(int totalBytes, int downloadedBytes) {
+                            super.onRunning(totalBytes, downloadedBytes);
+                            Log.i(TAG, String.format("progress:%d/%d", downloadedBytes, totalBytes));
+                        }
+
+                        @Override
+                        public void onComplete(String file, AppUpdater appUpdater) {
+                            super.onComplete(file, appUpdater);
+                            appUpdater.installApk(file);
+                        }
+                    });
+                }
+            }
+        });
     }
 }
