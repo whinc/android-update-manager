@@ -22,6 +22,8 @@ dependencies {
 
 下面代码演示了如何检查App版本、下载最新的App安装包和安装APK文件：
 
+>注意：AppUpdater的download方法有几个重载版本，其中参数较少的版本默认设置是不在通知栏显示下载任务，这需要添加权限 android.permission.DOWNLOAD_WITHOUT_NOTIFICATION
+
 ```
 protected void checkUpdate() {
     String checkVersionUrl = "http://192.168.1.182:1234/update.xml";
