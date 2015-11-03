@@ -133,8 +133,8 @@ public class AppUpdater {
      * @param downloadListener
      */
     @RequiresPermission(Manifest.permission.INTERNET)
-    public void download(@NonNull String from, @Nullable DownloadListener downloadListener) {
-        download(from, null, downloadListener);
+    public long download(@NonNull String from, @Nullable DownloadListener downloadListener) throws IOException {
+        return download(from, null, downloadListener);
     }
 
     /**
@@ -144,8 +144,8 @@ public class AppUpdater {
      * @param downloadListener
      */
     @RequiresPermission(Manifest.permission.INTERNET)
-    public void download(@NonNull String from, @Nullable String to, @Nullable DownloadListener downloadListener) {
-        download(from, to, downloadListener, "", "", false, DownloadManager.Request.VISIBILITY_HIDDEN);
+    public long download(@NonNull String from, @Nullable String to, @Nullable DownloadListener downloadListener) throws IOException {
+        return download(from, to, downloadListener, "", "", false, DownloadManager.Request.VISIBILITY_HIDDEN);
     }
 
     /**
@@ -157,19 +157,19 @@ public class AppUpdater {
      * @param description The task description displayed in notification bar
      * @param visibleInDownloadUi If download task is visible in system download task manager ui.
      * @param notificationVisibility If download task is visible in notification bar.
+     * @return return the download id
      */
     @RequiresPermission(Manifest.permission.INTERNET)
-    public void download(@NonNull String from,
+    public long download(@NonNull String from,
                          @Nullable String to,
                          @Nullable final DownloadListener downloadListener,
                          @Nullable String title,
                          @Nullable String description,
                          boolean visibleInDownloadUi,
                          int notificationVisibility
-    ) {
+    ) throws IOException {
         if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
-            Log.e(TAG, "Cannot access external storage.");
-            return;
+            throw new IOException("Cannot access external storage.");
         }
 
         Uri downloadUri = Uri.parse("content://downloads/my_downloads");
@@ -208,6 +208,21 @@ public class AppUpdater {
         DownloadContentObserver observer = new DownloadContentObserver(
                 new Handler(Looper.getMainLooper()), downloadManager, downloadId, downloadListener);
         mContext.getContentResolver().registerContentObserver(downloadUri, true, observer);
+
+        return downloadId;
+    }
+
+    /**
+     * Cancel downloads and remove them from the download manager.  Each download will be stopped if
+     * it was running, and it will no longer be accessible through the download manager.
+     * If there is a downloaded file, partial or complete, it is deleted.
+     *
+     * @param downloadIds the IDs of the downloads to remove
+     * @return the number of downloads actually removed
+     */
+    public int cancelDownload(long... downloadIds) {
+        DownloadManager downloadManager = (DownloadManager) mContext.getSystemService(Context.DOWNLOAD_SERVICE);
+        return downloadManager.remove(downloadIds);
     }
 
     /**
@@ -222,6 +237,11 @@ public class AppUpdater {
     }
 
     public void installApk(@NonNull String apkFile) {
+        if (TextUtils.isEmpty(apkFile)) {
+            Log.e(TAG, "Invalid apk file path:" + apkFile);
+            return;
+        }
+
         File file = new File(apkFile);
         if (!file.exists()) {
             Log.e(TAG, "Cannot install apk file: " + file.getAbsolutePath());

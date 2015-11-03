@@ -118,6 +118,14 @@
             android:layout_height="wrap_content"/>
     </LinearLayout>
     <Button
+        android:id="@+id/cancel_download_button"
+        android:text="Cancel Download"
+        android:textAllCaps="false"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        />
+    <Button
         android:id="@+id/install_app_button"
         android:text="Install App"
         android:textAllCaps="false"

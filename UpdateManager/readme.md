@@ -5,18 +5,12 @@ Help you check, download and install your newest version app simply and quickly.
 
 ### How to use
 
-在模块的build.gradle中添加依赖，由于还没有发布到[jcenter](https://bintray.com/whinc/maven/appudpater/view)所以需要添加一个仓库地址：
+在模块的build.gradle中添加下面依赖即可使用：
 
 ```
-repositories {
-    maven {
-        url 'https://dl.bintray.com/whinc/maven'
-    }
-}
-
 dependencies {
     ...
-    compile 'com.whinc.util.updater:appupdater:1.0.0'
+    compile 'com.whinc.util.updater:appupdater:1.0.1'
 }
 ```
 
@@ -33,24 +27,31 @@ protected void checkUpdate() {
         public void complete(boolean hasNewVersion, AppUpdater.Version version, AppUpdater appUpdater) {
             if (hasNewVersion) {
                 Log.i(TAG, "version info:" + version);
-                appUpdater.download(version.getDownloadUrl(), new AppUpdater.DownloadListenerAdapter() {
-                    @Override
-                    public void onRunning(int totalBytes, int downloadedBytes) {
-                        super.onRunning(totalBytes, downloadedBytes);
-                        Log.i(TAG, String.format("progress:%d/%d", downloadedBytes, totalBytes));
-                    }
+                try {
+                    appUpdater.download(version.getDownloadUrl(), new AppUpdater.DownloadListenerAdapter() {
+                        @Override
+                        public void onRunning(int totalBytes, int downloadedBytes) {
+                            super.onRunning(totalBytes, downloadedBytes);
+                            Log.i(TAG, String.format("progress:%d/%d", downloadedBytes, totalBytes));
+                        }
 
-                    @Override
-                    public void onComplete(String file, AppUpdater appUpdater) {
-                        super.onComplete(file, appUpdater);
-                        appUpdater.installApk(file);
-                    }
-                });
+                        @Override
+                        public void onComplete(String file, AppUpdater appUpdater) {
+                            super.onComplete(file, appUpdater);
+                            appUpdater.installApk(file);
+                        }
+                    });
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         }
     });
 }
 ```
+
+AppUpdater的download()方法会返回下载id，可以调用AppUpdater的cancelDownload()来取消指定id的下载任务。
+
 AppUpdater检查版本信息时调用 `VersionParse`接口的parse()方法，该方法会返回一个包含了App版本信息`Version`对象，AppUpdater通过比较`Version`对象中的版本号与当前App的版本号来决定是否需要更新。AppUpdater默认实现了下面XML格式的版本信息解析，如要实现自定义的版本信息格式，实现`VersionParse`接口即可。（App的版本号就是build.gradle文件中的`android.defaultConfig.versionCode`字段）
 
 ```

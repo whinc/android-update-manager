@@ -12,6 +12,7 @@ import com.whinc.util.Log;
 import com.whinc.util.updater.AppUpdater;
 
 import java.io.File;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -37,6 +38,7 @@ public class AppUpdaterActivity extends ActionBarActivity {
 
     AppUpdater mAppUpdater = AppUpdater.newInstance(this);
     private String mApkFile;
+    private long mDownloadId = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -121,8 +123,22 @@ public class AppUpdaterActivity extends ActionBarActivity {
 //                        Log.i(TAG, "onSuccessful");
             }
         };
-        mAppUpdater.download(url, downloadListener);
+        try {
+            mDownloadId = mAppUpdater.download(url, downloadListener);
+            Log.i(TAG, "start download " + mDownloadId);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 //        mAppUpdater.download(url, null, downloadListener,"title", "description",  true, DownloadManager.Request.VISIBILITY_VISIBLE);
+    }
+
+    @OnClick(R.id.cancel_download_button)
+    protected void cancelDownload() {
+        if (mDownloadId != -1) {
+            if(mAppUpdater.cancelDownload(mDownloadId) == 1) {
+                Log.i(TAG, "Has cancel download " + mDownloadId);
+            }
+        }
     }
 
     @OnClick(R.id.install_app_button)
@@ -139,19 +155,23 @@ public class AppUpdaterActivity extends ActionBarActivity {
             public void complete(boolean hasNewVersion, AppUpdater.Version version, AppUpdater appUpdater) {
                 if (hasNewVersion) {
                     Log.i(TAG, "version info:" + version);
-                    appUpdater.download(version.getDownloadUrl(), new AppUpdater.DownloadListenerAdapter() {
-                        @Override
-                        public void onRunning(int totalBytes, int downloadedBytes) {
-                            super.onRunning(totalBytes, downloadedBytes);
-                            Log.i(TAG, String.format("progress:%d/%d", downloadedBytes, totalBytes));
-                        }
+                    try {
+                        appUpdater.download(version.getDownloadUrl(), new AppUpdater.DownloadListenerAdapter() {
+                            @Override
+                            public void onRunning(int totalBytes, int downloadedBytes) {
+                                super.onRunning(totalBytes, downloadedBytes);
+                                Log.i(TAG, String.format("progress:%d/%d", downloadedBytes, totalBytes));
+                            }
 
-                        @Override
-                        public void onComplete(String file, AppUpdater appUpdater) {
-                            super.onComplete(file, appUpdater);
-                            appUpdater.installApk(file);
-                        }
-                    });
+                            @Override
+                            public void onComplete(String file, AppUpdater appUpdater) {
+                                super.onComplete(file, appUpdater);
+                                appUpdater.installApk(file);
+                            }
+                        });
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
         });
