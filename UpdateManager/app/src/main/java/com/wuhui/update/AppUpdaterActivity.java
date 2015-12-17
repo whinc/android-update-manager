@@ -2,6 +2,7 @@ package com.wuhui.update;
 
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.support.v7.app.ActionBarActivity;
@@ -12,6 +13,7 @@ import com.whinc.util.Log;
 import com.whinc.util.updater.AppUpdater;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -23,6 +25,8 @@ import butterknife.OnClick;
 public class AppUpdaterActivity extends ActionBarActivity {
 
     public static final String TAG = AppUpdaterActivity.class.getSimpleName();
+    private static final String CHECK_VERSION_URL =
+            "http://admin.qfoxtech.com:9006/distribution/update.do?type=QIAO_QIAO_ANDROID";
     @Bind(R.id.local_version_code_textView)
     TextView mLocalVersionCode;
     @Bind(R.id.local_version_name_textView)
@@ -36,7 +40,7 @@ public class AppUpdaterActivity extends ActionBarActivity {
     @Bind(R.id.download_progress_textview)
     TextView mProgress;
 
-    AppUpdater mAppUpdater = AppUpdater.newInstance(this);
+    AppUpdater.Version mVersion;
     private String mApkFile;
     private long mDownloadId = -1;
 
@@ -55,29 +59,69 @@ public class AppUpdaterActivity extends ActionBarActivity {
         }
     }
 
-    @OnClick(R.id.check_version_button)
-    protected void checkVersion() {
-        String checkVersionUrl = "http://192.168.1.182:1234/update.xml";
-        mAppUpdater.checkVersionAsync(checkVersionUrl, new AppUpdater.VersionParseXML(), new AppUpdater.CheckVersionListener() {
+    @OnClick(R.id.check_version_async_button)
+    protected void checkVersionAsync() {
+        AppUpdater.getInstance().checkVersionAsync(CHECK_VERSION_URL, new AppUpdater.VersionParseXML(), new AppUpdater.CheckVersionListener() {
+
             @Override
-            public void complete(boolean hasNewVersion, AppUpdater.Version version, AppUpdater appUpdater) {
+            public void complete(AppUpdater.Version version, AppUpdater appUpdater) {
                 Log.i(TAG, "version:" + version);
-                if (hasNewVersion) {
-                    mServerVersionCode.setText(String.valueOf(version.getVersionCode()));
-                    mServerVersionName.setText(version.getVersionName());
+                if (version != null) {
+                    if (BuildConfig.VERSION_CODE < version.getVersionCode()) {
+                        mServerVersionCode.setText(String.valueOf(version.getVersionCode()));
+                        mServerVersionName.setText(version.getVersionName());
+                    }
                 }
+            }
+
+            @Override
+            public void onError(Exception e) {
+                Log.e(TAG, Log.getStackString(e));
             }
         });
     }
 
+    @OnClick(R.id.check_version_sync_button)
+    protected void checkVersionSync() {
+        new AsyncTask<Void, Void, AppUpdater.Version>() {
+            @Override
+            protected AppUpdater.Version doInBackground(Void... params) {
+                AppUpdater.Version version = null;
+                try {
+                    version = AppUpdater.getInstance().checkVersion(
+                            CHECK_VERSION_URL, new AppUpdater.VersionParseXML());
+                } catch (PackageManager.NameNotFoundException e) {
+                    Log.e(TAG, Log.getStackString(e));
+                } catch (AppUpdater.VersionParserException e) {
+                    Log.e(TAG, Log.getStackString(e));
+                } catch (IOException e) {
+                    Log.e(TAG, Log.getStackString(e));
+                }
+                return version;
+            }
+
+            @Override
+            protected void onPostExecute(AppUpdater.Version version) {
+                super.onPostExecute(version);
+                if (version != null) {
+                    mVersion = version;
+                    Log.i(TAG, "version:" + version);
+                    if (BuildConfig.VERSION_CODE < version.getVersionCode()) {
+                        mServerVersionCode.setText(String.valueOf(version.getVersionCode()));
+                        mServerVersionName.setText(version.getVersionName());
+                    }
+                }
+            }
+        }.execute();
+    }
+
     @OnClick(R.id.download_app_button)
     protected void download() {
-        AppUpdater.Version version = mAppUpdater.getVersion();
-        if (version == null) {
+        if (mVersion == null) {
             return;
         }
 
-        String url = version.getDownloadUrl();
+        String url = mVersion.getDownloadUrl();
         String dateStr = new SimpleDateFormat("MMddhhmmss").format(new Date());
         final String path = Environment.getExternalStorageDirectory() + File.separator + dateStr + ".apk";
         AppUpdater.DownloadListenerAdapter downloadListener = new AppUpdater.DownloadListenerAdapter() {
@@ -120,22 +164,20 @@ public class AppUpdaterActivity extends ActionBarActivity {
                 super.onSuccessful();
                 mProgressBar.setProgress(mProgressBar.getMax());
                 mProgress.setText("100%");
-//                        Log.i(TAG, "onSuccessful");
             }
         };
         try {
-            mDownloadId = mAppUpdater.download(url, downloadListener);
+            mDownloadId = AppUpdater.getInstance().download(this, url, downloadListener);
             Log.i(TAG, "start download " + mDownloadId);
         } catch (IOException e) {
             e.printStackTrace();
         }
-//        mAppUpdater.download(url, null, downloadListener,"title", "description",  true, DownloadManager.Request.VISIBILITY_VISIBLE);
     }
 
     @OnClick(R.id.cancel_download_button)
     protected void cancelDownload() {
         if (mDownloadId != -1) {
-            if(mAppUpdater.cancelDownload(mDownloadId) == 1) {
+            if(AppUpdater.getInstance().cancelDownload(this, mDownloadId) == 1) {
                 Log.i(TAG, "Has cancel download " + mDownloadId);
             }
         }
@@ -143,37 +185,60 @@ public class AppUpdaterActivity extends ActionBarActivity {
 
     @OnClick(R.id.install_app_button)
     protected void installApk() {
-        mAppUpdater.installApk(mApkFile);
+        try {
+            AppUpdater.getInstance().installApk(this, mApkFile);
+        } catch (FileNotFoundException e) {
+            Log.e(TAG, Log.getStackString(e));
+        }
     }
 
     @OnClick(R.id.check_update_btn)
     protected void checkUpdate() {
-        String checkVersionUrl = "http://192.168.1.182:1234/update.xml";
-        AppUpdater updater = AppUpdater.newInstance(this);
-        updater.checkVersionAsync(checkVersionUrl, new AppUpdater.VersionParseXML(), new AppUpdater.CheckVersionListener() {
+        String url = CHECK_VERSION_URL;
+        AppUpdater.VersionParser parser = new AppUpdater.VersionParseXML();
+        AppUpdater.CheckVersionListener checkVersionListener = new AppUpdater.CheckVersionListener() {
             @Override
-            public void complete(boolean hasNewVersion, AppUpdater.Version version, AppUpdater appUpdater) {
-                if (hasNewVersion) {
-                    Log.i(TAG, "version info:" + version);
-                    try {
-                        appUpdater.download(version.getDownloadUrl(), new AppUpdater.DownloadListenerAdapter() {
-                            @Override
-                            public void onRunning(int totalBytes, int downloadedBytes) {
-                                super.onRunning(totalBytes, downloadedBytes);
-                                Log.i(TAG, String.format("progress:%d/%d", downloadedBytes, totalBytes));
-                            }
-
-                            @Override
-                            public void onComplete(String file, AppUpdater appUpdater) {
-                                super.onComplete(file, appUpdater);
-                                appUpdater.installApk(file);
-                            }
-                        });
-                    } catch (IOException e) {
-                        e.printStackTrace();
+            public void complete(AppUpdater.Version version, AppUpdater appUpdater) {
+                Log.i(TAG, "server version:" + version);
+                Log.i(TAG, "local version:" + BuildConfig.VERSION_CODE);
+                if (version != null) {
+                    if (BuildConfig.VERSION_CODE < version.getVersionCode()) {
+                        download(version.getDownloadUrl());
                     }
                 }
             }
-        });
+
+            @Override
+            public void onError(Exception e) {
+                Log.e(TAG, Log.getStackString(e));
+            }
+        };
+
+        AppUpdater.getInstance().checkVersionAsync(url, parser, checkVersionListener);
+    }
+
+    private void download(String downloadUrl) {
+        Log.i(TAG, "begin downloading");
+        try {
+            AppUpdater.getInstance().download(this, downloadUrl, new AppUpdater.DownloadListenerAdapter() {
+                @Override
+                public void onRunning(int totalBytes, int downloadedBytes) {
+                    super.onRunning(totalBytes, downloadedBytes);
+                    Log.i(TAG, String.format("progress:%d/%d", downloadedBytes, totalBytes));
+                }
+
+                @Override
+                public void onComplete(String file, AppUpdater appUpdater) {
+                    super.onComplete(file, appUpdater);
+                    try {
+                        appUpdater.installApk(AppUpdaterActivity.this, file);
+                    } catch (FileNotFoundException e) {
+                        Log.e(TAG, Log.getStackString(e));
+                    }
+                }
+            });
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

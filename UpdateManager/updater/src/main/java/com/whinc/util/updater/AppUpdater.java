@@ -6,7 +6,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.database.ContentObserver;
 import android.database.Cursor;
@@ -19,19 +18,21 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.RequiresPermission;
 import android.text.TextUtils;
-import android.util.Log;
 
+import org.w3c.dom.DOMException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -43,86 +44,104 @@ import javax.xml.parsers.ParserConfigurationException;
  */
 public class AppUpdater {
     private static final String TAG = AppUpdater.class.getSimpleName();
-    private static final int MSG_DOWNLOAD = 0;
-    private final Context mContext;
+    private static AppUpdater sSingleton = null;
 
-    public Version getVersion() {
-        return mVersion;
+    private AppUpdater() {}
+
+    public static AppUpdater getInstance() {
+        if (sSingleton == null) {
+            sSingleton = new AppUpdater();
+        }
+        return sSingleton;
     }
 
-    private Version mVersion;
-
-    private AppUpdater(Context context) {
-        mContext = context;
-    }
-
-    public static AppUpdater newInstance(Context context) {
-        return new AppUpdater(context);
+    public Version checkVersion(@NonNull String checkVersionUrl,
+                                @NonNull VersionParser parser)
+            throws PackageManager.NameNotFoundException, VersionParserException, IOException {
+        return checkVersion(checkVersionUrl, parser, Params.getDefault());
     }
 
     /**
-     * <p>Check if exist new version. You can access the new version info with {@link #getVersion()}</p>
-     * @param checkVersionUrl
-     * @param parser
-     * @return return true if exist new version, otherwise return false.
+     * <p>Check if exist new version.</p>
      */
-    public boolean checkVersion(@NonNull String checkVersionUrl, @NonNull VersionParser parser) {
+    public Version checkVersion(@NonNull String checkVersionUrl,
+                                @NonNull VersionParser parser,
+                                @NonNull Params params)
+            throws VersionParserException, IOException, PackageManager.NameNotFoundException {
+        Version version = null;
         URL url = null;
         HttpURLConnection httpConn = null;
         try {
             url = new URL(checkVersionUrl);
             httpConn = (HttpURLConnection) url.openConnection();
-            httpConn.setConnectTimeout(200000);
-            httpConn.setReadTimeout(200000);
+            httpConn.setConnectTimeout(params.getConnectTimeout());
+            httpConn.setReadTimeout(params.getReadTimeout());
             httpConn.setUseCaches(false);       // disable cache for current http connection
             httpConn.connect();
             if (httpConn.getResponseCode() == HttpURLConnection.HTTP_OK) {
                 InputStream inputStream = httpConn.getInputStream();
                 // parse version info.
-                mVersion = parser.parse(inputStream);
-                if (mVersion != null) {
-                    PackageInfo packageInfo = mContext.getPackageManager()
-                            .getPackageInfo(mContext.getPackageName(), 0);
-                    // check if exist new version.
-                    if (packageInfo.versionCode < mVersion.getVersionCode()) {
-                        return true;
+                version = parser.parse(inputStream);
+            } else {
+                StringBuilder builder = new StringBuilder();
+                if (httpConn.getErrorStream() != null) {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(httpConn.getErrorStream()));
+                    String line = reader.readLine();
+                    while (line != null) {
+                        builder.append(line).append('\n');
+                        line = reader.readLine();
                     }
+                    reader.close();
                 }
+                throw new IOException("unrecognized response code:"
+                        + httpConn.getResponseCode() + "\n" + builder );
             }
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (PackageManager.NameNotFoundException e) {
-            e.printStackTrace();
         } finally {
-            httpConn.disconnect();
+            if (httpConn != null) {
+                httpConn.disconnect();
+            }
         }
 
-        return false;
+        return version;
     }
 
+
+    public void checkVersionAsync(@NonNull final String checkVersionUrl,
+                                  @NonNull final VersionParser parser,
+                                  @NonNull final CheckVersionListener listener) {
+        checkVersionAsync(checkVersionUrl, parser, listener, Params.getDefault());
+    }
     /**
      * <p>Async version of {@link #checkVersion(String, VersionParser)}</p>
      * @param checkVersionUrl
      * @param parser
      * @param listener
      */
-    public void checkVersionAsync(@NonNull final String checkVersionUrl, @NonNull final VersionParser parser, @Nullable final CheckVersionListener listener) {
-        new AsyncTask<Void, Void, Boolean>() {
+    public void checkVersionAsync(@NonNull final String checkVersionUrl,
+                                  @NonNull final VersionParser parser,
+                                  @NonNull final CheckVersionListener listener,
+                                  @NonNull final Params params) {
+        new AsyncTask<Object, Void, Version>() {
 
             @Override
-            protected Boolean doInBackground(Void... params) {
-                boolean hasNewVersion = checkVersion(checkVersionUrl, parser);
-                return hasNewVersion;
+            protected Version doInBackground(Object... args) {
+                Version version = null;
+                try {
+                    version = checkVersion(checkVersionUrl, parser, params);
+                } catch (PackageManager.NameNotFoundException e) {
+                    listener.onError(e);
+                } catch (IOException e) {
+                    listener.onError(e);
+                } catch (VersionParserException e) {
+                    listener.onError(e);
+                }
+                return version;
             }
 
             @Override
-            protected void onPostExecute(Boolean hasNewVersion) {
-                super.onPostExecute(hasNewVersion);
-                if (listener != null) {
-                    listener.complete(hasNewVersion, getVersion(), AppUpdater.this);
-                }
+            protected void onPostExecute(Version version) {
+                super.onPostExecute(version);
+                listener.complete(version, AppUpdater.this);
             }
         }.execute();
     }
@@ -133,8 +152,10 @@ public class AppUpdater {
      * @param downloadListener
      */
     @RequiresPermission(Manifest.permission.INTERNET)
-    public long download(@NonNull String from, @Nullable DownloadListener downloadListener) throws IOException {
-        return download(from, null, downloadListener);
+    public long download(@NonNull Context context,
+                         @NonNull String from,
+                         @Nullable DownloadListener downloadListener) throws IOException {
+        return download(context, from, null, downloadListener);
     }
 
     /**
@@ -144,8 +165,11 @@ public class AppUpdater {
      * @param downloadListener
      */
     @RequiresPermission(Manifest.permission.INTERNET)
-    public long download(@NonNull String from, @Nullable String to, @Nullable DownloadListener downloadListener) throws IOException {
-        return download(from, to, downloadListener, "", "", false, DownloadManager.Request.VISIBILITY_HIDDEN);
+    public long download(@NonNull Context context,
+                         @NonNull String from,
+                         @Nullable String to,
+                         @Nullable DownloadListener downloadListener) throws IOException {
+        return download(context, from, to, downloadListener, "", "", false, DownloadManager.Request.VISIBILITY_HIDDEN);
     }
 
     /**
@@ -160,7 +184,8 @@ public class AppUpdater {
      * @return return the download id
      */
     @RequiresPermission(Manifest.permission.INTERNET)
-    public long download(@NonNull String from,
+    public long download(@NonNull Context context,
+                         @NonNull String from,
                          @Nullable String to,
                          @Nullable final DownloadListener downloadListener,
                          @Nullable String title,
@@ -173,7 +198,7 @@ public class AppUpdater {
         }
 
         Uri downloadUri = Uri.parse("content://downloads/my_downloads");
-        final DownloadManager downloadManager = (DownloadManager) mContext.getSystemService(Context.DOWNLOAD_SERVICE);
+        final DownloadManager downloadManager = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
 
         // create download request
         DownloadManager.Request request = new DownloadManager.Request(Uri.parse(from));
@@ -190,7 +215,7 @@ public class AppUpdater {
 
         // register download complete broadcast
         IntentFilter intentFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-        mContext.registerReceiver(new BroadcastReceiver() {
+        context.registerReceiver(new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
@@ -199,7 +224,7 @@ public class AppUpdater {
                         String filePath = DownloadContentObserver.queryDownloadFilePath(downloadManager, downloadId);
                         downloadListener.onComplete(filePath, AppUpdater.this);
                     }
-                    mContext.unregisterReceiver(this);
+                    context.unregisterReceiver(this);
                 }
             }
         }, intentFilter);
@@ -207,7 +232,7 @@ public class AppUpdater {
         // query download progress
         DownloadContentObserver observer = new DownloadContentObserver(
                 new Handler(Looper.getMainLooper()), downloadManager, downloadId, downloadListener);
-        mContext.getContentResolver().registerContentObserver(downloadUri, true, observer);
+        context.getContentResolver().registerContentObserver(downloadUri, true, observer);
 
         return downloadId;
     }
@@ -220,34 +245,31 @@ public class AppUpdater {
      * @param downloadIds the IDs of the downloads to remove
      * @return the number of downloads actually removed
      */
-    public int cancelDownload(long... downloadIds) {
-        DownloadManager downloadManager = (DownloadManager) mContext.getSystemService(Context.DOWNLOAD_SERVICE);
+    public int cancelDownload(@NonNull Context context, @NonNull long... downloadIds) {
+        DownloadManager downloadManager = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
         return downloadManager.remove(downloadIds);
     }
 
     /**
      * Install specified apk installation file.
-     * @param apkUri uri of apk installation file.
      */
-    public void installApk(@NonNull Uri apkUri) {
+    public void installApk(@NonNull Context context, @NonNull Uri apkUri) {
         Intent intent = new Intent(Intent.ACTION_VIEW);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
-        mContext.startActivity(intent);
+        context.startActivity(intent);
     }
 
-    public void installApk(@NonNull String apkFile) {
+    public void installApk(@NonNull Context context, @NonNull String apkFile) throws FileNotFoundException {
         if (TextUtils.isEmpty(apkFile)) {
-            Log.e(TAG, "Invalid apk file path:" + apkFile);
-            return;
+            throw new IllegalArgumentException("apk file path is empty!");
         }
 
         File file = new File(apkFile);
         if (!file.exists()) {
-            Log.e(TAG, "Cannot install apk file: " + file.getAbsolutePath());
-            return;
+            throw new FileNotFoundException("cannot find file:" + file.getAbsolutePath());
         }
-        installApk(Uri.fromFile(file));
+        installApk(context, Uri.fromFile(file));
     }
 
     /*************************** Interface Define ***************************/
@@ -258,17 +280,16 @@ public class AppUpdater {
          * @param inputStream data return from server
          * @return return a instance of {@link Version}, otherwise return null.
          */
-        Version parse(InputStream inputStream);
+        Version parse(InputStream inputStream) throws VersionParserException;
     }
 
     public interface CheckVersionListener {
         /**
          * <p>This method will be called on finishing check version.</p>
-         * @param hasNewVersion true if has new version, otherwise false
-         * @param version
-         * @param appUpdater
          */
-        void complete(boolean hasNewVersion, Version version, AppUpdater appUpdater);
+        void complete(Version version, AppUpdater appUpdater);
+
+        void onError(Exception e);
     }
 
     public interface DownloadListener {
@@ -309,26 +330,23 @@ public class AppUpdater {
          * </info>
          * }
          * </pre>
-         * @return return a {@link Version} object if parse successfully, otherwise return null.
+         * @return return a {@link Version} object if parse successfully, otherwise throws exception.
          */
         @Override
-        public Version parse(InputStream inputStream) {
+        public Version parse(InputStream inputStream) throws VersionParserException {
             Version version = new Version();
             Document document = null;
             DocumentBuilderFactory builderFactory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = null;
             try {
-                DocumentBuilder builder = builderFactory.newDocumentBuilder();
+                builder = builderFactory.newDocumentBuilder();
                 document = builder.parse(inputStream);
             } catch (ParserConfigurationException e) {
-                e.printStackTrace();
+                throw new VersionParserException(e);
             } catch (SAXException e) {
-                e.printStackTrace();
+                throw new VersionParserException(e);
             } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-            if (document == null) {
-                return null;
+                throw new VersionParserException(e);
             }
 
             // <info>
@@ -344,7 +362,14 @@ public class AppUpdater {
                             Node n = versionNode.item(j);
                             if (n instanceof Element) {
                                 if (n.getNodeName().equals("code")) {
-                                    int versionCode = Integer.parseInt(n.getFirstChild().getNodeValue());
+                                    int versionCode = 0;
+                                    try {
+                                        versionCode = Integer.parseInt(n.getFirstChild().getNodeValue());
+                                    } catch (NumberFormatException e) {
+                                        throw new VersionParserException(e);
+                                    } catch (DOMException e) {
+                                        throw new VersionParserException(e);
+                                    }
                                     version.setVersionCode(versionCode);
                                 } else if (n.getNodeName().equals("name")) {
                                     String versionName = n.getFirstChild().getNodeValue();
@@ -421,6 +446,26 @@ public class AppUpdater {
             mDownloadListener = downloadListener;
         }
 
+        public static String queryDownloadFilePath(DownloadManager downloadManager, long downloadId) {
+            return queryColumn(downloadManager, downloadId, DownloadManager.COLUMN_LOCAL_FILENAME);
+        }
+
+        public static String queryColumn(DownloadManager downloadManager, long downloadId, String column) {
+            String filepath = null;
+            DownloadManager.Query query = new DownloadManager.Query().setFilterById(downloadId);
+            Cursor cursor = downloadManager.query(query);
+            try {
+                if (cursor != null && cursor.moveToFirst()) {
+                    filepath = cursor.getString(cursor.getColumnIndexOrThrow(column));
+                }
+            } finally {
+                if (cursor != null) {
+                    cursor.close();
+                }
+            }
+            return filepath;
+        }
+
         @Override
         public void onChange(boolean selfChange) {
             super.onChange(selfChange);
@@ -460,26 +505,6 @@ public class AppUpdater {
                     cursor.close();
                 }
             }
-        }
-
-        public static String queryDownloadFilePath(DownloadManager downloadManager, long downloadId) {
-            return queryColumn(downloadManager, downloadId, DownloadManager.COLUMN_LOCAL_FILENAME);
-        }
-
-        public static String queryColumn(DownloadManager downloadManager, long downloadId, String column) {
-            String filepath = null;
-            DownloadManager.Query query = new DownloadManager.Query().setFilterById(downloadId);
-            Cursor cursor = downloadManager.query(query);
-            try {
-                if (cursor != null && cursor.moveToFirst()) {
-                    filepath = cursor.getString(cursor.getColumnIndexOrThrow(column));
-                }
-            } finally {
-                if (cursor != null) {
-                    cursor.close();
-                }
-            }
-            return filepath;
         }
 
         /**
@@ -594,6 +619,49 @@ public class AppUpdater {
         public String toString() {
             return String.format("[%d, %s, %s, %s]",
                     mVersionCode, mVersionName, mDownloadUrl, mUpdateLog);
+        }
+    }
+
+    public static class VersionParserException extends Exception {
+        public VersionParserException(Throwable throwable) {
+            super(throwable);
+        }
+    }
+
+    public static class Params {
+        private static final int HTTP_CONNECT_TIMEOUT = 20 * 000;
+        private static final int HTTP_READ_TIMEOUT = 20 * 000;
+        private static Params sDefault = null;
+
+        private int mConnectTimeout;
+        private int mReadTimeout;
+
+        public Params(int connectTimeout, int readTimeout) {
+            mConnectTimeout = connectTimeout;
+            mReadTimeout = readTimeout;
+        }
+
+        public static Params getDefault() {
+            if (sDefault == null) {
+                sDefault = new Params(HTTP_CONNECT_TIMEOUT, HTTP_READ_TIMEOUT);
+            }
+            return sDefault;
+        }
+
+        public int getReadTimeout() {
+            return mReadTimeout;
+        }
+
+        public void setReadTimeout(int readTimeout) {
+            mReadTimeout = readTimeout;
+        }
+
+        public int getConnectTimeout() {
+            return mConnectTimeout;
+        }
+
+        public void setConnectTimeout(int connectTimeout) {
+            mConnectTimeout = connectTimeout;
         }
     }
 }

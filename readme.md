@@ -1,4 +1,4 @@
-## [当前readme已经废弃，请移步到新版的readme](https://github.com/whinc/AndroidUpdateManager/tree/master/UpdateManager)
+## [当前readme已经废弃，请移步到新版的readme](./UpdateManger/readme.md)
 
 ### AndroidUpdateManager
 

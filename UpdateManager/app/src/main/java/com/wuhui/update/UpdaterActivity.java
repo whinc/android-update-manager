@@ -13,6 +13,7 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+@Deprecated
 public class UpdaterActivity extends ActionBarActivity {
     public static final String TAG = UpdaterActivity.class.getSimpleName();
 
@@ -28,7 +29,7 @@ public class UpdaterActivity extends ActionBarActivity {
         setContentView(R.layout.activity_main);
         mContext = this;
         mVersionNumtView = (TextView)findViewById(R.id.version_num_textview);
-        mCheckUpdateBtn = (Button)findViewById(R.id.check_version_button);
+        mCheckUpdateBtn = (Button)findViewById(R.id.check_version_async_button);
         mDownloadProgress = (ProgressBar)findViewById(R.id.download_progress_progressbar);
         mDownloadProgressTxtView = (TextView)findViewById(R.id.download_progress_textview);
 

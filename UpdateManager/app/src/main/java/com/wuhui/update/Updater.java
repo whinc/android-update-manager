@@ -41,6 +41,7 @@ import javax.xml.parsers.ParserConfigurationException;
  * Updater 通过一行代码就可以完成自动检查更新，如果有更新显示提示对话框，用户点击更新后
  * 自动下载和安装新版App，用户可以监听下载进度。
  */
+@Deprecated
 public class Updater {
     public static final String TAG = "Updater";
 
