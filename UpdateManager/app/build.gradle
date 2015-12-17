@@ -25,5 +25,5 @@ dependencies {
     compile 'com.whinc.util:androidtoolkit:0.1.0'
     compile 'com.jakewharton:butterknife:7.0.1'
     compile project(':updater')
-//    compile 'com.whinc.util.updater:appupdater:1.0.1'
+//    compile 'com.github.whinc:android-update-manager:1.1.0'
 }

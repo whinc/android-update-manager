@@ -6,14 +6,27 @@ You can use AppUpdater to check latest version, download and install apk. It pro
 
 ### Integaration （集成）
 
-Add dependency to you app build.gradle file:
+Add it in your **root** build.gradle at the end of repositories:
 
-在模块的build.gradle中添加下面依赖：
+在项目**根目录**下的 build.gradle 文件中添加下面maven仓库地址：
 
+```groovy
+allprojects {
+    repositories {
+        ...
+        maven { url "https://jitpack.io" }
+    }
+}
 ```
+
+Add dependency to you **module** build.gradle file:
+
+在**模块**的build.gradle中添加下面依赖：
+
+```groovy
 dependencies {
     ...
-    compile 'com.whinc.util.updater:appupdater:1.0.1'
+    compile 'com.github.whinc:android-update-manager:1.1.0'
 }
 ```
 
