@@ -1,4 +1,4 @@
-## [当前readme已经废弃，请移步到新版的readme](./UpdateManger/readme.md)
+## [当前readme已经废弃，请移步到新版的readme](./UpdateManager/readme.md)
 
 ### AndroidUpdateManager
 
